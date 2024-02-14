@@ -1,0 +1,84 @@
+
+// Program: Gold Mini Demarker MT5
+// Developer: Forex Robot Easy Team (forexroboteasy.com)
+
+// Include necessary libraries
+#include <Trade\Trade.mqh>
+#include <MovingAverages.mqh>
+#include <ForceIndex.mqh>
+#include <DeMarker.mqh>
+
+// Initialize necessary variables
+double lotSize = 0.01; // Lot size for trading
+int maxOrders = 5; // Maximum number of orders to open
+int gridStep = 10; // Grid step for the Risky Grid Strategy
+int martingaleMultiplier = 2; // Multiplier for the Martingale Strategy
+
+// Initialize trading functions
+CTrade trade;
+
+// Initialize technical indicators
+CMovingAverages ma;
+CForceIndex fi;
+CDeMarker demarker;
+
+// Smooth out price data using Moving Average
+double GetSmoothedPrice(double price)
+{
+    double smoothedPrice = ma.iMA(NULL, 0, 14, 0, MODE_SMA, PRICE_CLOSE, 0);
+    return smoothedPrice;
+}
+
+// Measure raw power of a move using Force Index
+double GetForceIndex()
+{
+    double forceIndex = fi.iForce(NULL, 0, 14, PRICE_CLOSE, 0);
+    return forceIndex;
+}
+
+// Compare maximum and minimum prices with close price using DeMarker Indicator
+bool ComparePrices()
+{
+    double maxPrice = demarker.iDeMarker(NULL, 0, 14, 0);
+    double minPrice = demarker.iDeMarker(NULL, 0, 14, 1);
+    double closePrice = demarker.iDeMarker(NULL, 0, 14, 2);
+
+    if (closePrice > maxPrice || closePrice < minPrice)
+        return true;
+    else
+        return false;
+}
+
+// Execute trades based on technical indicators
+void ExecuteTrades()
+{
+    // Check if maximum and minimum prices are surpassed
+    if (ComparePrices())
+    {
+        // Open positions using Risky Grid Strategy
+        for (int i = 0; i < maxOrders; i++)
+        {
+            double entryPrice = MarketInfo(Symbol(), MODE_BID) + (gridStep * i * Point);
+            trade.Buy(lotSize, Symbol(), entryPrice, 0, 0, 0, 'Risky Grid Strategy');
+        }
+
+        // Open additional positions using Martingale Strategy
+        for (int i = maxOrders; i < (maxOrders * martingaleMultiplier); i++)
+        {
+            double entryPrice = MarketInfo(Symbol(), MODE_BID) + (gridStep * i * Point);
+            trade.Buy(lotSize * i, Symbol(), entryPrice, 0, 0, 0, 'Martingale Strategy');
+        }
+    }
+}
+
+// Entry point of the program
+void OnTick()
+{
+    // Update technical indicators
+    ma.Update();
+    fi.Update();
+    demarker.Update();
+
+    // Execute trades based on technical indicators
+    ExecuteTrades();
+}
